@@ -51,25 +51,25 @@ class Teacher(object):
     def criterion_description(self, i):
         description = self.DESCRIPTION[self.ROLE][i]
         if self.count < self.MIN_COUNT:
-            return '## {q}\nНедостаточно данных'.format(q=description['question'])
+            return '## {q}\nНедостаточно данных.'.format(q=description['question'])
         if self.params[i][2] / self.count > 0.5 + self.EPS:
-            return '## {q}\n{a} ({c}/{all} = {p:.0f}%)' \
+            return '## {q}\n{a}, над этим нужно работать. ({c}/{all} = {p:.0f}%)' \
                 .format(q=description['question'], a=description['answers'][2],
                         c=self.params[i][2], all=self.count, p=100 * self.params[i][2] / self.count)
         elif (self.params[i][1] + self.params[i][2]) / self.count > 0.5 + self.EPS:
-            return '## {q}\n{a} ({c}/{all} = {p:.0f}%)' \
+            return '## {q}\n{a}, этому стоит уделить внимание. ({c}/{all} = {p:.0f}%)' \
                 .format(q=description['question'], a=description['answers'][3],
                         c=self.params[i][1] + self.params[i][2], all=self.count,
                         p=100 * (self.params[i][1] + self.params[i][2]) / self.count)
         elif self.params[i][0] / self.count >= 1.0 - self.EPS:
-            return '## {q}\n{a}'.format(q=description['question'], a=description['answers'][5])
+            return '## {q}\n{a}, единогласно, отличный результат!'.format(q=description['question'], a=description['answers'][5])
         elif self.params[i][0] / self.count > 0.5 + self.EPS:
-            return '## {q}\n{a} ({c}/{all} = {p:.0f}%)' \
+            return '## {q}\n{a}. ({c}/{all} = {p:.0f}%)' \
                 .format(q=description['question'], a=description['answers'][4],
                         c=self.params[i][0], all=self.count,
                         p=100 * self.params[i][0] / self.count)
         else:
-            return '## {q}\nНедостаточно данных'.format(q=description['question'])
+            return '## {q}\nНедостаточно данных.'.format(q=description['question'])
 
     def description(self):
         result = '# {name}\n\nПерсональная статистика (в скобках указано количество проголосовавших)\n\n' \

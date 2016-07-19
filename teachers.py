@@ -72,7 +72,7 @@ class Teacher(object):
             return '## {q}\nНедостаточно данных'.format(q=description['question'])
 
     def description(self):
-        result = '# {name}\n\nПерсональная статистика (в скобках указано количество проголосовавших\n\n' \
+        result = '# {name}\n\nПерсональная статистика (в скобках указано количество проголосовавших)\n\n' \
             .format(name=self.name)
 
         for i in range(self.PARAMS):
@@ -140,7 +140,6 @@ def main():
         result.append([t.subject, t.name, t.description()])
     result.sort()
 
-    print(result)
     for subject, name, description in result:
         print(description)
 

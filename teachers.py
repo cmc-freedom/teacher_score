@@ -34,9 +34,9 @@ class Teacher(object):
 
                 self.params[i][j] += 1
 
-    def score(self, i):
+    def criterion_score(self, i):
         if self.count < self.MIN_COUNT:
-            return 'н/д'
+            return None
         if self.params[i][2] / self.count > 0.5 + self.EPS:
             return 2
         elif (self.params[i][1] + self.params[i][2]) / self.count > 0.5 + self.EPS:
@@ -46,39 +46,65 @@ class Teacher(object):
         elif self.params[i][0] / self.count > 0.5 + self.EPS:
             return 4
         else:
-            return 'н/д'
+            return None
+
+    def score(self):
+        if self.count < self.MIN_COUNT:
+            return None
+        else:
+            sum = 0
+            count = 0
+
+            for i in range(self.PARAMS):
+                score = self.criterion_score(i)
+
+                if score is not None:
+                    sum += score
+                    count += 1
+
+            return sum / count
 
     def criterion_description(self, i):
         description = self.DESCRIPTION[self.ROLE][i]
+        question = '- Вопрос: {q}\n'.format(q=description['question'])
         if self.count < self.MIN_COUNT:
-            return '## {q}\nНедостаточно данных.'.format(q=description['question'])
+            return '{q}- Ответ: Недостаточно данных.'.format(q=question)
         if self.params[i][2] / self.count > 0.5 + self.EPS:
-            return '## {q}\n{a}, над этим нужно работать. ({c}/{all} = {p:.0f}%)' \
-                .format(q=description['question'], a=description['answers'][2],
+            return '{q}- Ответ: {a}, **над этим нужно работать**. ({c}/{all} = {p:.0f}%)' \
+                .format(q=question, a=description['answers'][2],
                         c=self.params[i][2], all=self.count, p=100 * self.params[i][2] / self.count)
         elif (self.params[i][1] + self.params[i][2]) / self.count > 0.5 + self.EPS:
-            return '## {q}\n{a}, этому стоит уделить внимание. ({c}/{all} = {p:.0f}%)' \
-                .format(q=description['question'], a=description['answers'][3],
+            return '{q}- Ответ: {a}, *этому стоит уделить внимание*. ({c}/{all} = {p:.0f}%)' \
+                .format(q=question, a=description['answers'][3],
                         c=self.params[i][1] + self.params[i][2], all=self.count,
                         p=100 * (self.params[i][1] + self.params[i][2]) / self.count)
         elif self.params[i][0] / self.count >= 1.0 - self.EPS:
-            return '## {q}\n{a}, единогласно, отличный результат!'.format(q=description['question'], a=description['answers'][5])
+            return '{q}- Ответ: {a}, единогласно, **отличный результат**!'.format(q=question, a=description['answers'][5])
         elif self.params[i][0] / self.count > 0.5 + self.EPS:
-            return '## {q}\n{a}. ({c}/{all} = {p:.0f}%)' \
-                .format(q=description['question'], a=description['answers'][4],
+            return '{q}- Ответ: {a}. ({c}/{all} = {p:.0f}%)' \
+                .format(q=question, a=description['answers'][4],
                         c=self.params[i][0], all=self.count,
                         p=100 * self.params[i][0] / self.count)
         else:
-            return '## {q}\nНедостаточно данных.'.format(q=description['question'])
+            return '{q}- Ответ: Недостаточно данных.'.format(q=question)
 
     def description(self):
-        result = '# {name}\n\nПерсональная статистика (в скобках указано количество проголосовавших)\n\n' \
-            .format(name=self.name)
+        role = {'lecture': 'лекций', 'seminar': 'семинаров'}[self.ROLE]
+
+        description = '## {name}\n\nКачество преподавания *{role}* (в скобках указано количество поддерживающих конкретное утверждение опрошенных).\n\nСредняя оценка преподавания по пятибальной шкале: {score}.\n' \
+            .format(name=self.name, role=role, score=self.score())
+
+        if self.begin == self.end:
+            description += ('Место в общем рейтинге: {begin} из {top_len}.\n\n'
+                            .format(begin=self.begin+1, top_len=self.top_len))
+        else:
+            description += ('Место в общем рейтинге: {begin}-{end} из {top_len}.\n\n'
+                            .format(begin=self.begin+1, end=self.end+1, top_len=self.top_len))
 
         for i in range(self.PARAMS):
-            result += self.criterion_description(i) + '\n'
+            description += self.criterion_description(i) + '\n'
 
-        return result
+        return description
 
 
 def mutate(c, mutate_dict):
@@ -105,6 +131,32 @@ class Seminarist(Teacher):
         data[4] = mutate(data[4], {'а': 'в', 'б': 'а', 'в': '-'})
 
         super().vote(data)
+
+def get_top(teachers):
+    top = []
+
+    def get_end(begin):
+        for j in range(begin + 1, len(top)):
+            if abs(top[j][0] - top[j-1][0]) > Teacher.EPS:
+                return j - 1
+        return len(top) - 1
+
+    for key in teachers:
+        teacher = teachers[key]
+        if teacher.score() is not None:
+            top.append([teacher.score(), teacher])
+    top.sort(key=lambda pair: pair[0], reverse=True)
+
+    begin, end = 0, get_end(0)
+
+    for i in range(len(top)):
+        if i > 0 and abs(top[i][0] - top[i-1][0]) > Teacher.EPS:
+            begin, end = i, get_end(i)
+
+        teacher = top[i][1]
+        teacher.begin, teacher.end, teacher.top_len = begin, end, len(top)
+
+    return top
 
 def main():
     dirname = os.path.abspath(os.path.dirname(__file__))
@@ -134,14 +186,10 @@ def main():
 
                 t.vote(data)
 
-    result = []
-    for key in sorted(teachers.keys()):
-        t = teachers[key]
-        result.append([t.subject, t.name, t.description()])
-    result.sort()
+    top = get_top(teachers)
 
-    for subject, name, description in result:
-        print(description)
+    for score, teacher in top:
+        print(teacher.description())
 
 if __name__ == "__main__":
     main()

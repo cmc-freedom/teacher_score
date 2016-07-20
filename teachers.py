@@ -182,7 +182,7 @@ def main():
                 t = teachers.get(name, None)
 
                 if t is None:
-                    t = teachers[name] = Lecturer(name, subject)
+                    t = teachers[name] = Seminarist(name, subject)
 
                 t.vote(data)
 

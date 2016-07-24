@@ -21,6 +21,7 @@ class Teacher(object):
         self.name = name
         self.subject = subject
         self.count = 0
+        self.percentage = None
         self.params = [[0, 0, 0] for i in range(self.PARAMS)]
 
     def vote(self, data):
@@ -38,20 +39,27 @@ class Teacher(object):
         if self.count < self.MIN_COUNT:
             return None
         if self.params[i][2] / self.count > 0.5 + self.EPS:
+            self.percentage = ('({c}/{all} = {p:.0f}%)'
+                               .format(c=self.params[i][2], all=self.count,
+                                       p=100 * self.params[i][2] / self.count))
             return 2
         elif (self.params[i][1] + self.params[i][2]) / self.count > 0.5 + self.EPS:
+            self.percentage = ('({c}/{all} = {p:.0f}%)'
+                               .format(c=self.params[i][1] + self.params[i][2], all=self.count,
+                                       p=100 * (self.params[i][1] + self.params[i][2]) / self.count))
             return 3
         elif self.params[i][0] / self.count >= 1.0 - self.EPS:
             return 5
         elif self.params[i][0] / self.count > 0.5 + self.EPS:
+            self.percentage = ('({c}/{all} = {p:.0f}%)'
+                               .format(c=self.params[i][0], all=self.count,
+                                       p=100 * self.params[i][0] / self.count))
             return 4
         else:
             return None
 
     def score(self):
-        if self.count < self.MIN_COUNT:
-            return None
-        else:
+        if self.count >= self.MIN_COUNT:
             sum = 0
             count = 0
 
@@ -70,21 +78,20 @@ class Teacher(object):
         if self.count < self.MIN_COUNT:
             return '{q}- Ответ: Недостаточно данных.'.format(q=question)
         if self.params[i][2] / self.count > 0.5 + self.EPS:
-            return '{q}- Ответ: {a}, **над этим нужно работать**. ({c}/{all} = {p:.0f}%)' \
+            return '{q}- Ответ: {a}, **над этим нужно работать**. {percentage}' \
                 .format(q=question, a=description['answers'][2],
-                        c=self.params[i][2], all=self.count, p=100 * self.params[i][2] / self.count)
+                        percentage=self.percentage)
         elif (self.params[i][1] + self.params[i][2]) / self.count > 0.5 + self.EPS:
-            return '{q}- Ответ: {a}, *этому стоит уделить внимание*. ({c}/{all} = {p:.0f}%)' \
+            return '{q}- Ответ: {a}, **этому стоит уделить внимание**. {percentage}' \
                 .format(q=question, a=description['answers'][3],
-                        c=self.params[i][1] + self.params[i][2], all=self.count,
-                        p=100 * (self.params[i][1] + self.params[i][2]) / self.count)
+                        percentage=self.percentage)
         elif self.params[i][0] / self.count >= 1.0 - self.EPS:
-            return '{q}- Ответ: {a}, единогласно, **отличный результат**!'.format(q=question, a=description['answers'][5])
+            return ('{q}- Ответ: {a}, единогласно, **отличный результат**!'
+                    .format(q=question, a=description['answers'][5]))
         elif self.params[i][0] / self.count > 0.5 + self.EPS:
-            return '{q}- Ответ: {a}. ({c}/{all} = {p:.0f}%)' \
+            return '{q}- Ответ: {a}. {percentage}' \
                 .format(q=question, a=description['answers'][4],
-                        c=self.params[i][0], all=self.count,
-                        p=100 * self.params[i][0] / self.count)
+                        percentage=self.percentage)
         else:
             return '{q}- Ответ: Недостаточно данных.'.format(q=question)
 
@@ -106,6 +113,24 @@ class Teacher(object):
 
         return description
 
+    def csv_line(self):
+        description = self.subject + ',' + self.name
+
+        for i in range(self.PARAMS):
+            criterion_score = self.criterion_score(i)
+
+            if criterion_score is None:
+                criterion_score = 'н/д'
+            else:
+                criterion_score = str(criterion_score)
+                if criterion_score != '5':
+                    criterion_score = criterion_score + ' ' + self.percentage
+
+            description += ',' + criterion_score
+
+        description += ',' + str(self.score())
+
+        return description
 
 def mutate(c, mutate_dict):
     return mutate_dict.get(c, c)
@@ -177,12 +202,12 @@ def main():
 
         for i, row in enumerate(reader):
             if i > 0:
-                name, subject, data = row[0], row[2], row[4:]
+                name, subject, data = row[0], row[3], row[4:]
 
                 t = teachers.get(name, None)
 
                 if t is None:
-                    t = teachers[name] = Seminarist(name, subject)
+                    t = teachers[name] = Lecturer(name, subject)
 
                 t.vote(data)
 
@@ -190,6 +215,7 @@ def main():
 
     for score, teacher in top:
         print(teacher.description())
+        # print(teacher.csv_line())
 
 if __name__ == "__main__":
     main()
